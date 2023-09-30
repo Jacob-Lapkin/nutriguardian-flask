@@ -1,51 +1,52 @@
 # pylint: disable=missing-timeout
 # pylint: disable=broad-exception-caught
 import requests
-from flask import Blueprint, current_app, jsonify
+from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 customer_attributes_bp = Blueprint('customer_attributes_bp', __name__)
 
-# Square API endpoint
-SQUARE_ENDPOINT = "https://connect.squareupsandbox.com/v2/customers"
-
-# Define create_attribute route in customer_attribute_bp
-@customer_attributes_bp.route('/create-attribute', methods=['POST'])
+# Define allergies route in customer_attribute_bp
+@customer_attributes_bp.route('/add-allergies', methods=['POST'])
 @jwt_required()
 def create_attribute():
     # get database instance and current user
     db = current_app.db
     user = get_jwt_identity()
     try:
-        # check if user is a seller
-        user = db.users.find_one({"email":user})
-        if user['seller'] is False:
-            return jsonify({"error":"Unauthorized user. User must be set as seller to access custom attribute createion"}), 403
+        data = request.get_json()
+        allergies = data.get("allergies", None)
+        if not allergies or not isinstance(allergies, list):
+            return jsonify({"error":"you must provide allergies for the customer as an array"}), 400
         
-        url = f"{SQUARE_ENDPOINT}/custom-attribute-definitions"
-        headers = {
-            "Square-Version": '2023-09-25',
-            "Authorization": f"Bearer {current_app.config['SQUARE_ACCESS_TOKEN']}",
-            "Content-Type": "application/json"
-        }
-
-        data = {
-            "custom_attribute_definition": {
-      "schema": {
-        "$ref": "https://developer-production-s.squarecdn.com/schemas/v1/common.json#squareup.common.String"
-      },
-      "description": "The allergy information of the customer.",
-      "key": "allergyInfo",
-      "name": "Allergy Information"
-    },
-        }
-
-        response = requests.post(url, headers=headers, json=data)
-
-        if response.status_code == 200: # pylint: disable=no-else-return
-            return jsonify(success=True, data=response.json()), 200
+        user_allergies = db.allergies.find_one({"email":user})
+        if user_allergies:
+            db.allergies.update({"email": user}, {"$addToSet": {"allergies": {"$each": allergies}}})
         else:
-            return jsonify(success=False, error=response.text), response.status_code
+            db.allergies.insert_one({"email":user, "allergies":allergies})        
+        return jsonify({"success":"inserted allergy information successfully"}), 201
+
+    except Exception as error:
+        return jsonify({"error": f"An unexpected error occurred: {error}"}), 500
+
+@customer_attributes_bp.route('/remove-allergies', methods=['POST'])
+@jwt_required()
+def remove_allergies():
+    # get database instance and current user
+    db = current_app.db
+    user = get_jwt_identity()
+
+    try:
+        data = request.get_json()
+        allergies_to_remove = data.get("allergies", None)
+        
+        if not allergies_to_remove or not isinstance(allergies_to_remove, list):
+            return jsonify({"error": "you must provide allergies for the customer as an array"}), 400
+
+        # Find the user and remove the specified allergies
+        db.allergies.update_one({"email": user}, {"$pullAll": {"allergies": allergies_to_remove}})
+
+        return jsonify({"success": "Allergies removed successfully"}), 200
 
     except Exception as error:
         return jsonify({"error": f"An unexpected error occurred: {error}"}), 500
