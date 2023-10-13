@@ -1,6 +1,7 @@
 
 from dotenv import load_dotenv
 import os
+from datetime import timedelta
 
 load_dotenv()
 
@@ -10,6 +11,7 @@ class Config:
     VERSION = 'v1'
     SECRET_KEY = "ashjkasdkbj3"
     JWT_SECRET_KEY="asdfasdas"
+    JWT_ACCESS_TOKEN_EXPIRES=timedelta(hours=1)
     
 class Development(Config):
     MONGO_URI = "mongodb://localhost:27017"

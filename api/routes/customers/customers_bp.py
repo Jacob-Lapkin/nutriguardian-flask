@@ -16,6 +16,43 @@ SQUARE_ENDPOINT = "https://connect.squareupsandbox.com/v2/customers"
 
 @customers_bp.route('/register', methods=['POST'])
 def register():
+    """
+    Register a new customer
+    ---
+    tags:
+      - Customers
+    parameters:
+      - in: body
+        name: body
+        description: User registration details.
+        required: true
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+              description: The email of the user.
+              default: "newuser@example.com"  # <-- Default value
+            password:
+              type: string
+              description: The password of the user.
+              default: "password123"  # <-- Default value
+            givenName:
+              type: string
+              description: Given name of the user.
+              default: "John"  # <-- Default value
+            familyName:
+              type: string
+              description: Family name of the user.
+              default: "Doe"  # <-- Default value
+    responses:
+      200:
+        description: User registered successfully.
+      400:
+        description: Missing data or email already exists.
+      500:
+        description: Database error or unexpected error.
+    """
     try:
         # MongoDB configuration
         db = current_app.db
@@ -76,6 +113,37 @@ def register():
 
 @customers_bp.route('/login', methods=['POST'])
 def login():
+    """
+    Login customer
+    ---
+    tags:
+      - Customers
+    parameters:
+      - in: body
+        name: body
+        description: Email and password for login.
+        required: true
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+              description: The email of the user.
+              default: "test@example.com"  # <-- This sets the default value
+            password:
+              type: string
+              description: The password of the user.
+              default: "password123"  # <-- This sets the default value
+    responses:
+      200:
+        description: Successfully logged in.
+      401:
+        description: Email or password is incorrect.
+      500:
+        description: Database error or unexpected error.
+    """
+    # [Rest of your function code]
+
     try:
         # MongoDB configuration
         db = current_app.db
@@ -121,6 +189,21 @@ def login():
 @customers_bp.route('/delete_customer', methods=['DELETE'])
 @jwt_required()
 def delete_customer():
+    """
+    Delete a customer
+    ---
+    tags:
+      - Customers
+    security:
+      - JWT: []
+    responses:
+      200:
+        description: Customer deleted successfully.
+      400:
+        description: Failed to delete customer in Square.
+      500:
+        description: Database error or unexpected error.
+    """
     try:
         # Get the identity of the currently authenticated user
         current_user_email = get_jwt_identity()
@@ -130,8 +213,6 @@ def delete_customer():
         
         # Check if the authenticated user is the owner of the customer_id
         user = db.users.find_one({"email": current_user_email})
-        if not user:
-            return jsonify({"error": "Customer not found or unauthorized"}), 404
         square_customer_id = user.get("square_customer_id")
         # If versioning is necessary, retrieve it from the query parameter.
 

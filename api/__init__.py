@@ -4,8 +4,11 @@ from flask_jwt_extended import JWTManager
 from configuration.configuration import Development, Production
 
 from .routes.main_bp import main_bp
+from flasgger import Swagger
+from .utils.swagger.swagger_config import swagger_template
 
 jwt = JWTManager()
+swagger = Swagger(template=swagger_template)
 def create_app(config_class=Development):
     """
     Function used for creating the app instance of the flask api
@@ -23,8 +26,9 @@ def create_app(config_class=Development):
     version = app.config['VERSION']
     app.register_blueprint(main_bp, url_prefix=f"/api/{version}")
 
-    jwt.init_app(app)  # Correct way to initialize JWTManager with app
-    
+    jwt.init_app(app)  
+    swagger.init_app(app)
+
     @app.route('/test', methods=["POST"])
     def test():
         return jsonify({"message":"test route"})

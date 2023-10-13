@@ -15,6 +15,47 @@ import uuid
 @catalog_bp.route('/create-food-item', methods=['POST'])
 @jwt_required()
 def create_food_item():
+    """
+    Create a new food item in the catalog
+    ---
+    tags:
+      - Catalog
+    security:
+      - JWT: []
+    parameters:
+      - in: body
+        name: food_item
+        description: The food item to create.
+        schema:
+          type: object
+          required:
+            - name
+            - description
+            - price
+            - image
+          properties:
+            name:
+              type: string
+              description: Name of the food item.
+            description:
+              type: string
+              description: Description of the food item.
+            price:
+              type: float
+              description: Price of the food item.
+            image:
+              type: string
+              description: URL of the food item image.
+    responses:
+      200:
+        description: Successfully created the food item.
+      400:
+        description: Missing required fields.
+      403:
+        description: Customer not found or unauthorized.
+      500:
+        description: An unexpected error occurred.
+    """
     try:
         db = current_app.db
         user = get_jwt_identity()
@@ -25,7 +66,10 @@ def create_food_item():
         if not all(k in data for k in ("name", "description", "price", "image")):
             return jsonify({"error": "Missing required fields"}), 400
 
-        # ... [Other parts of your code]
+        user_search = db.users.find_one({"email":user})
+
+        if user_search.get('seller') is not True:
+            return jsonify({"error": "Customer not found or unauthorized"}), 403
 
         # Generate a unique ID for the new food item using UUID
         unique_item_id = f"#{str(uuid.uuid4())}"
@@ -35,8 +79,8 @@ def create_food_item():
 
         # Construct the payload for Square API
         payload = {
-            "idempotency_key": f"id_{user}_{data['name']}",
-            "object": {
+                "idempotency_key": str(uuid.uuid4()),
+                "object": {
                 "type": "ITEM",
                 "id": unique_item_id,
                 "item_data": {
@@ -71,16 +115,14 @@ def create_food_item():
 
         response = requests.post(square_endpoint("object"), headers=headers, json=payload)
 
-# ... [Rest of your code]
-
-
         if response.status_code == 200:
             response_data = response.json()
             square_product_id = response_data["catalog_object"]["id"]
             db.products.insert_one({
                 "ingredients": data["ingredients"],
                 "square_product_id": square_product_id, 
-                "email":user
+                "email":user, 
+                "inventory":100
             })
             return jsonify(success=True, data=response_data), 200
         else:
@@ -92,9 +134,37 @@ def create_food_item():
 @catalog_bp.route('/delete-food-item/<item_id>', methods=['DELETE'])
 @jwt_required()
 def delete_food_item(item_id):
+    """
+    Delete a food item from the catalog
+    ---
+    tags:
+      - Catalog
+    security:
+      - JWT: []
+    parameters:
+      - in: path
+        name: item_id
+        type: string
+        required: true
+        description: The ID of the food item to delete.
+    responses:
+      200:
+        description: Successfully deleted the food item.
+      403:
+        description: Customer not found or unauthorized.
+      404:
+        description: Item not found in the database.
+      500:
+        description: An unexpected error occurred.
+    """
     try:
         db = current_app.db
         user = get_jwt_identity()
+
+        user_search = db.users.find_one({"email":user})
+        
+        if user_search.get('seller') is not True:
+            return jsonify({"error": "Customer not found or unauthorized"}), 403
 
         # Delete from Square API
         headers = {
@@ -123,9 +193,24 @@ def delete_food_item(item_id):
 @catalog_bp.route('/list-catalog', methods=['GET'])
 @jwt_required()
 def list_catalog():
+    """
+    List all food items in the catalog
+    ---
+    tags:
+      - Catalog
+    security:
+      - JWT: []
+    responses:
+      200:
+        description: Successfully listed all the food items.
+      500:
+        description: An unexpected error occurred.
+    """
     try:
         db = current_app.db
+        user = get_jwt_identity()
 
+        
         # Fetch catalog from Square API
         headers = {
             "Square-Version": "2023-09-25",

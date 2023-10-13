@@ -10,6 +10,35 @@ customer_attributes_bp = Blueprint('customer_attributes_bp', __name__)
 @customer_attributes_bp.route('/add-allergies', methods=['POST'])
 @jwt_required()
 def create_attribute():
+    """
+    Add allergies for the authenticated customer
+    ---
+    tags:
+      - Allergies
+    security:
+      - JWT: []
+    parameters:
+      - name: allergies
+        in: body
+        required: true
+        description: List of allergies for the customer.
+        schema:
+          type: object
+          required:
+            - allergies
+          properties:
+            allergies:
+              type: array
+              items:
+                type: string
+    responses:
+      201:
+        description: Inserted allergy information successfully.
+      400:
+        description: Invalid input, allergies must be provided as an array.
+      500:
+        description: An unexpected error occurred.
+    """
     # get database instance and current user
     db = current_app.db
     user = get_jwt_identity()
@@ -21,7 +50,7 @@ def create_attribute():
         
         user_allergies = db.allergies.find_one({"email":user})
         if user_allergies:
-            db.allergies.update({"email": user}, {"$addToSet": {"allergies": {"$each": allergies}}})
+            db.allergies.update_one({"email": user}, {"$addToSet": {"allergies": {"$each": allergies}}})
         else:
             db.allergies.insert_one({"email":user, "allergies":allergies})        
         return jsonify({"success":"inserted allergy information successfully"}), 201
@@ -29,9 +58,38 @@ def create_attribute():
     except Exception as error:
         return jsonify({"error": f"An unexpected error occurred: {error}"}), 500
 
-@customer_attributes_bp.route('/remove-allergies', methods=['POST'])
+@customer_attributes_bp.route('/remove-allergies', methods=['DELETE'])
 @jwt_required()
 def remove_allergies():
+    """
+    Remove specified allergies for the authenticated customer
+    ---
+    tags:
+      - Allergies
+    security:
+      - JWT: []
+    parameters:
+      - name: allergies
+        in: body
+        required: true
+        description: List of allergies to be removed for the customer.
+        schema:
+          type: object
+          required:
+            - allergies
+          properties:
+            allergies:
+              type: array
+              items:
+                type: string
+    responses:
+      200:
+        description: Allergies removed successfully.
+      400:
+        description: Invalid input, allergies must be provided as an array.
+      500:
+        description: An unexpected error occurred.
+    """
     # get database instance and current user
     db = current_app.db
     user = get_jwt_identity()
@@ -50,3 +108,53 @@ def remove_allergies():
 
     except Exception as error:
         return jsonify({"error": f"An unexpected error occurred: {error}"}), 500
+
+
+@customer_attributes_bp.route('/get-allergies', methods=['GET'])
+@jwt_required()
+def get_allergies():
+    """
+    Retrieve allergies for the authenticated customer
+    ---
+    tags:
+      - Allergies
+    security:
+      - JWT: []
+    responses:
+      200:
+        description: Successfully retrieved allergies for the user.
+        schema:
+          type: object
+          properties:
+            allergies:
+              type: array
+              items:
+                type: string
+      404:
+        description: No allergies found for the user.
+      500:
+        description: An unexpected error occurred.
+    """
+    # get database instance and current user
+    db = current_app.db
+    user = get_jwt_identity()
+
+    try:
+        # Find the user and get their allergies
+        user_allergies = db.allergies.find_one({"email": user})
+
+        if not user_allergies:
+            return jsonify({"error": "No allergies found for the user"}), 404
+        
+        allergies = user_allergies.get("allergies", [])
+
+        return jsonify({"allergies": allergies}), 200
+
+    except Exception as error:
+        return jsonify({"error": f"An unexpected error occurred: {error}"}), 500
+
+
+
+
+
+
