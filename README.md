@@ -53,7 +53,7 @@ NutriGuardian is an intuitive Flask API designed for health-conscious consumers,
   
 - **PyMongo**: A bridge between MongoDB and Python.
 
-- **AnyManyMore
+- **And Many More**...
 
 ## 🚀 Getting Started
 
@@ -94,3 +94,7 @@ We appreciate community contributions! Fork this repository, make your enhanceme
 🎉 Acknowledgments
 
 Special shoutout to everyone involved in this Google + Square Hackathon event. Your dedication and hard work made these projects a reality.
+
+## 📚 OpenAPI Specifications
+
+For detailed API documentation, including endpoints, request/response formats, and more, please refer to our OpenAPI (Swagger) documentation the endpoint /apidocs.
